@@ -23,8 +23,13 @@ contract EncryptedSurvey is SepoliaConfig {
     address public immutable admin;
     ViewerRegistry private _viewerRegistry;
 
+    bool public isActive;
+    uint256 public surveyDeadline;
+
     event ResponseSubmitted(address indexed respondent, uint256 indexed optionIndex);
     event ViewerAuthorized(address indexed viewer);
+    event SurveyActivated();
+    event SurveyClosed();
 
     error SurveyAlreadyAnswered();
     error InvalidOption();
@@ -38,12 +43,20 @@ contract EncryptedSurvey is SepoliaConfig {
         _;
     }
 
-    constructor(string memory title, string memory description, string[] memory options) {
+    modifier surveyActive() {
+        require(isActive, "SURVEY_NOT_ACTIVE");
+        require(block.timestamp <= surveyDeadline, "SURVEY_EXPIRED");
+        _;
+    }
+
+    constructor(string memory title, string memory description, string[] memory options, uint256 deadline) {
         require(options.length > 0, "OPTIONS_REQUIRED");
 
         admin = msg.sender;
         surveyTitle = title;
         surveyDescription = description;
+        surveyDeadline = deadline;
+        isActive = true;
 
         for (uint256 i = 0; i < options.length; i++) {
             _options.push(options[i]);
@@ -90,7 +103,7 @@ contract EncryptedSurvey is SepoliaConfig {
     }
 
     /// @notice Submits an encrypted response for a specific survey option.
-    function submitResponse(uint256 optionIndex, externalEuint32 encryptedVote, bytes calldata proof) external {
+    function submitResponse(uint256 optionIndex, externalEuint32 encryptedVote, bytes calldata proof) external surveyActive {
         if (optionIndex >= _options.length) {
             revert InvalidOption();
         }
@@ -117,6 +130,25 @@ contract EncryptedSurvey is SepoliaConfig {
     /// @notice Returns the list of currently authorized viewers.
     function authorizedViewers() external view returns (address[] memory) {
         return _viewerRegistry.viewers;
+    }
+
+    /// @notice Closes the survey, preventing further responses.
+    function closeSurvey() external onlyAdmin {
+        isActive = false;
+        emit SurveyClosed();
+    }
+
+    /// @notice Reopens a closed survey.
+    function reopenSurvey() external onlyAdmin {
+        require(block.timestamp <= surveyDeadline, "DEADLINE_PASSED");
+        isActive = true;
+        emit SurveyActivated();
+    }
+
+    /// @notice Extends the survey deadline.
+    function extendDeadline(uint256 newDeadline) external onlyAdmin {
+        require(newDeadline > surveyDeadline, "NEW_DEADLINE_MUST_BE_LATER");
+        surveyDeadline = newDeadline;
     }
 
     function _authorizeViewer(address viewer) private {
