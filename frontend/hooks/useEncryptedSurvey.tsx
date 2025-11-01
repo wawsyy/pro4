@@ -1,0 +1,370 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ethers } from "ethers";
+import { useAccount, usePublicClient } from "wagmi";
+
+import { EncryptedSurveyABI } from "@/abi/EncryptedSurveyABI";
+import { EncryptedSurveyAddresses } from "@/abi/EncryptedSurveyAddresses";
+import { useFhevm } from "@/fhevm/useFhevm";
+import { useInMemoryStorage } from "@/hooks/useInMemoryStorage";
+import { FhevmDecryptionSignature } from "@/fhevm/FhevmDecryptionSignature";
+
+type ContractInfo = {
+  abi: typeof EncryptedSurveyABI.abi;
+  address?: `0x${string}`;
+  chainId?: number;
+  chainName?: string;
+};
+
+type DecryptedTallies = Array<number | null>;
+
+const INITIAL_MOCK_CHAINS: Readonly<Record<number, string>> = {
+  31337: "http://localhost:8545",
+};
+
+export function useEncryptedSurvey() {
+  const { address, chain } = useAccount();
+  const publicClient = usePublicClient();
+  const { storage } = useInMemoryStorage();
+
+  const eip1193Provider =
+    typeof window !== "undefined" ? (window as Window & { ethereum?: ethers.Eip1193Provider }).ethereum : undefined;
+
+  const contractInfo: ContractInfo = useMemo(() => {
+    if (!chain?.id) {
+      return { abi: EncryptedSurveyABI.abi };
+    }
+
+    const entry = EncryptedSurveyAddresses[chain.id.toString() as keyof typeof EncryptedSurveyAddresses];
+    if (!entry || entry.address === ethers.ZeroAddress) {
+      return { abi: EncryptedSurveyABI.abi, chainId: chain.id };
+    }
+
+    return {
+      abi: EncryptedSurveyABI.abi,
+      address: entry.address as `0x${string}`,
+      chainId: entry.chainId,
+      chainName: entry.chainName,
+    };
+  }, [chain?.id]);
+
+  const { instance, status: fheStatus } = useFhevm({
+    provider: eip1193Provider,
+    chainId: chain?.id,
+    initialMockChains: INITIAL_MOCK_CHAINS,
+  });
+
+  const [ethersSigner, setEthersSigner] = useState<ethers.JsonRpcSigner | undefined>(undefined);
+  const [surveyTitle, setSurveyTitle] = useState<string>("");
+  const [surveyDescription, setSurveyDescription] = useState<string>("");
+  const [options, setOptions] = useState<string[]>([]);
+  const [encryptedTallies, setEncryptedTallies] = useState<`0x${string}`[]>([]);
+  const [decryptedTallies, setDecryptedTallies] = useState<DecryptedTallies>([]);
+  const [authorizedViewers, setAuthorizedViewers] = useState<`0x${string}`[]>([]);
+  const [adminAddress, setAdminAddress] = useState<`0x${string}` | undefined>(undefined);
+  const [hasResponded, setHasResponded] = useState<boolean>(false);
+
+  const [isFetching, setIsFetching] = useState<boolean>(false);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [isDecrypting, setIsDecrypting] = useState<boolean>(false);
+  const [isAuthorizing, setIsAuthorizing] = useState<boolean>(false);
+  const [message, setMessage] = useState<string>("");
+
+  const contractAddress = contractInfo.address;
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function resolveSigner() {
+      if (!address || !eip1193Provider) {
+        if (isMounted) {
+          setEthersSigner(undefined);
+        }
+        return;
+      }
+
+      try {
+        const browserProvider = new ethers.BrowserProvider(eip1193Provider, chain?.id);
+        const signer = await browserProvider.getSigner(address);
+        if (isMounted) {
+          setEthersSigner(signer);
+        }
+      } catch (error) {
+        console.warn("[useEncryptedSurvey] Unable to create signer", error);
+        if (isMounted) {
+          setEthersSigner(undefined);
+        }
+      }
+    }
+
+    void resolveSigner();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [address, chain?.id, eip1193Provider]);
+
+  const refreshSurvey = useCallback(async () => {
+    if (!publicClient || !contractAddress) {
+      return;
+    }
+
+    setIsFetching(true);
+
+    try {
+      const [title, description, optionCount, tallies, viewers, admin] = await Promise.all([
+        publicClient.readContract({
+          abi: contractInfo.abi,
+          address: contractAddress,
+          functionName: "surveyTitle",
+        }) as Promise<string>,
+        publicClient.readContract({
+          abi: contractInfo.abi,
+          address: contractAddress,
+          functionName: "surveyDescription",
+        }) as Promise<string>,
+        publicClient.readContract({
+          abi: contractInfo.abi,
+          address: contractAddress,
+          functionName: "optionsCount",
+        }) as Promise<bigint>,
+        publicClient.readContract({
+          abi: contractInfo.abi,
+          address: contractAddress,
+          functionName: "getAllEncryptedTallies",
+        }) as Promise<readonly `0x${string}`[]>,
+        publicClient.readContract({
+          abi: contractInfo.abi,
+          address: contractAddress,
+          functionName: "authorizedViewers",
+        }) as Promise<readonly `0x${string}`[]>,
+        publicClient.readContract({
+          abi: contractInfo.abi,
+          address: contractAddress,
+          functionName: "admin",
+        }) as Promise<`0x${string}`>,
+      ]);
+
+      const optionLabels = await Promise.all(
+        Array.from({ length: Number(optionCount) }, (_, index) =>
+          publicClient.readContract({
+            abi: contractInfo.abi,
+            address: contractAddress,
+            functionName: "getOptionLabel",
+            args: [BigInt(index)],
+          }) as Promise<string>,
+        ),
+      );
+
+      setSurveyTitle(title);
+      setSurveyDescription(description);
+      setOptions(optionLabels);
+      setEncryptedTallies(tallies.map((value) => value));
+      setAuthorizedViewers(viewers.map((v) => v));
+      setAdminAddress(admin);
+
+      if (address) {
+        const responded = await publicClient.readContract({
+          abi: contractInfo.abi,
+          address: contractAddress,
+          functionName: "hasResponded",
+          args: [address],
+        });
+        setHasResponded(Boolean(responded));
+      } else {
+        setHasResponded(false);
+      }
+    } catch (error) {
+      console.error("[useEncryptedSurvey] Unable to refresh survey data", error);
+      setMessage("Failed to refresh survey data. Please try again.");
+    } finally {
+      setIsFetching(false);
+    }
+  }, [publicClient, contractAddress, contractInfo.abi, address]);
+
+  useEffect(() => {
+    setDecryptedTallies([]);
+    if (contractAddress) {
+      void refreshSurvey();
+    }
+  }, [contractAddress, refreshSurvey]);
+
+  const submitResponse = useCallback(
+    async (optionIndex: number) => {
+      if (!contractAddress || !ethersSigner || !instance) {
+        setMessage("Connect your wallet to submit a response.");
+        return;
+      }
+
+      if (typeof optionIndex !== "number" || Number.isNaN(optionIndex)) {
+        setMessage("Select an option before submitting.");
+        return;
+      }
+
+      setIsSubmitting(true);
+      setMessage("Encrypting your vote...");
+
+      try {
+        const input = instance.createEncryptedInput(
+          contractAddress,
+          await ethersSigner.getAddress(),
+        );
+        input.add32(1);
+        const encrypted = await input.encrypt();
+
+        setMessage("Submitting encrypted response...");
+        const contract = new ethers.Contract(contractAddress, contractInfo.abi, ethersSigner);
+        const tx = await contract.submitResponse(optionIndex, encrypted.handles[0], encrypted.inputProof);
+        await tx.wait();
+
+        setMessage("Response submitted successfully.");
+        await refreshSurvey();
+      } catch (error) {
+        console.error("[useEncryptedSurvey] submitResponse error", error);
+        setMessage("Failed to submit your response. Please try again.");
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    [contractAddress, contractInfo.abi, ethersSigner, instance, refreshSurvey],
+  );
+
+  const decryptTallies = useCallback(async () => {
+    if (!contractAddress || !instance || !ethersSigner) {
+      setMessage("Connect an authorized wallet to decrypt results.");
+      return;
+    }
+
+    const nonEmptyHandles = encryptedTallies.filter((value) => value !== ethers.ZeroHash);
+    if (nonEmptyHandles.length === 0) {
+      setDecryptedTallies(encryptedTallies.map(() => 0));
+      setMessage("No responses submitted yet.");
+      return;
+    }
+
+    setIsDecrypting(true);
+    setMessage("Preparing decryption signature...");
+
+    try {
+      const signature = await FhevmDecryptionSignature.loadOrSign(
+        instance,
+        [contractAddress],
+        ethersSigner,
+        storage,
+      );
+
+      if (!signature) {
+        setMessage("Unable to sign decryption request.");
+        return;
+      }
+
+      setMessage("Decrypting aggregated tallies...");
+      const decryptRequests = encryptedTallies
+        .filter((handle) => handle !== ethers.ZeroHash)
+        .map((handle) => ({
+          handle,
+          contractAddress,
+        }));
+
+      const result = await instance.userDecrypt(
+        decryptRequests,
+        signature.privateKey,
+        signature.publicKey,
+        signature.signature,
+        signature.contractAddresses,
+        signature.userAddress,
+        signature.startTimestamp,
+        signature.durationDays,
+      );
+
+      const parsed: DecryptedTallies = encryptedTallies.map((handle) => {
+        if (handle === ethers.ZeroHash) {
+          return 0;
+        }
+        const decrypted = result[handle];
+        if (typeof decrypted === "undefined") {
+          return null;
+        }
+        return Number(decrypted);
+      });
+
+      setDecryptedTallies(parsed);
+      setMessage("Tallies decrypted successfully.");
+    } catch (error) {
+      console.error("[useEncryptedSurvey] decryptTallies error", error);
+      setMessage("Unable to decrypt tallies. Ensure this wallet is authorized.");
+    } finally {
+      setIsDecrypting(false);
+    }
+  }, [contractAddress, encryptedTallies, ethersSigner, instance, storage]);
+
+  const authorizeViewer = useCallback(
+    async (viewer?: string) => {
+      if (!contractAddress || !ethersSigner) {
+        setMessage("Connect with the survey administrator wallet.");
+        return;
+      }
+
+      const targetViewer = viewer ?? address;
+      if (!targetViewer) {
+        setMessage("Provide a viewer address to authorize.");
+        return;
+      }
+
+      setIsAuthorizing(true);
+      setMessage("Authorizing viewer...");
+
+      try {
+        const contract = new ethers.Contract(contractAddress, contractInfo.abi, ethersSigner);
+        const tx = await contract.authorizeViewer(targetViewer);
+        await tx.wait();
+
+        setMessage("Viewer authorized. Refreshing data...");
+        await refreshSurvey();
+      } catch (error) {
+        console.error("[useEncryptedSurvey] authorizeViewer error", error);
+        setMessage("Failed to authorize viewer.");
+      } finally {
+        setIsAuthorizing(false);
+      }
+    },
+    [address, contractAddress, contractInfo.abi, ethersSigner, refreshSurvey],
+  );
+
+  const isOnSupportedChain = Boolean(contractAddress);
+  const normalizedViewers = useMemo(
+    () => authorizedViewers.map((viewer) => viewer.toLowerCase()),
+    [authorizedViewers],
+  );
+
+  const isAuthorizedViewer =
+    address &&
+    (address.toLowerCase() === adminAddress?.toLowerCase() || normalizedViewers.includes(address.toLowerCase()));
+
+  return {
+    surveyTitle,
+    surveyDescription,
+    options,
+    encryptedTallies,
+    decryptedTallies,
+    hasResponded,
+    authorizedViewers,
+    adminAddress,
+    isAuthorizedViewer,
+    isOnSupportedChain,
+    contractAddress,
+    message,
+    isFetching,
+    isSubmitting,
+    isDecrypting,
+    isAuthorizing,
+    fheStatus,
+    refreshSurvey,
+    submitResponse,
+    decryptTallies,
+    authorizeViewer,
+  };
+
+}

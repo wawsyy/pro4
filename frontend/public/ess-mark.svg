@@ -1,0 +1,22 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad" x1="16%" y1="0%" x2="84%" y2="100%">
+      <stop offset="0%" stop-color="#55C6F7"/>
+      <stop offset="50%" stop-color="#5F6AFD"/>
+      <stop offset="100%" stop-color="#8D4FFF"/>
+    </linearGradient>
+    <linearGradient id="shield" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#D6E4FF" stop-opacity="0.95"/>
+    </linearGradient>
+    <clipPath id="clip">
+      <rect width="128" height="128" rx="28"/>
+    </clipPath>
+  </defs>
+  <g clip-path="url(#clip)">
+    <rect width="128" height="128" fill="url(#grad)"/>
+    <path d="M64 22c-11.5 0-23.1 2.5-32.7 7.6-4.4 2.3-7.3 6.9-7.3 11.9v22.8c0 20.4 14.4 40.4 40 53.5 25.6-13.1 40-33.1 40-53.5V41.5c0-5-2.9-9.6-7.3-11.9C87.1 24.5 75.5 22 64 22Z" fill="url(#shield)"/>
+    <path d="M46 55h36c1.8 0 3-1.2 3-3s-1.2-3-3-3H46c-1.8 0-3 1.2-3 3s1.2 3 3 3Zm0 18h24c1.8 0 3-1.2 3-3s-1.2-3-3-3H46c-1.8 0-3 1.2-3 3s1.2 3 3 3Zm0 18h16c1.8 0 3-1.2 3-3s-1.2-3-3-3H46c-1.8 0-3 1.2-3 3s1.2 3 3 3Z" fill="#4C33FF"/>
+  </g>
+</svg>
+
