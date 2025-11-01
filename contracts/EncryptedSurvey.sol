@@ -27,6 +27,7 @@ contract EncryptedSurvey is SepoliaConfig {
     uint256 public surveyDeadline;
 
     event ResponseSubmitted(address indexed respondent, uint256 indexed optionIndex);
+    event BatchResponseSubmitted(address indexed respondent, uint256[] optionIndices, uint256 totalVotes);
     event ViewerAuthorized(address indexed viewer);
     event SurveyActivated();
     event SurveyClosed();
@@ -120,6 +121,39 @@ contract EncryptedSurvey is SepoliaConfig {
         _refreshViewerAccess(optionIndex);
 
         emit ResponseSubmitted(msg.sender, optionIndex);
+    }
+
+    /// @notice Submits multiple encrypted responses for different survey options.
+    function submitBatchResponse(
+        uint256[] calldata optionIndices,
+        externalEuint32[] calldata encryptedVotes,
+        bytes[] calldata proofs
+    ) external surveyActive {
+        require(optionIndices.length == encryptedVotes.length && encryptedVotes.length == proofs.length, "ARRAY_LENGTH_MISMATCH");
+        require(optionIndices.length > 0, "EMPTY_BATCH");
+
+        if (_hasResponded[msg.sender]) {
+            revert SurveyAlreadyAnswered();
+        }
+
+        uint256 totalVotes = 0;
+
+        for (uint256 i = 0; i < optionIndices.length; i++) {
+            uint256 optionIndex = optionIndices[i];
+            if (optionIndex >= _options.length) {
+                revert InvalidOption();
+            }
+
+            euint32 voteValue = FHE.fromExternal(encryptedVotes[i], proofs[i]);
+            _encryptedTallies[optionIndex] = FHE.add(_encryptedTallies[optionIndex], voteValue);
+            totalVotes += 1;
+
+            FHE.allowThis(_encryptedTallies[optionIndex]);
+            _refreshViewerAccess(optionIndex);
+        }
+
+        _hasResponded[msg.sender] = true;
+        emit BatchResponseSubmitted(msg.sender, optionIndices, totalVotes);
     }
 
     /// @notice Grants permission for a viewer to decrypt the current tallies.
