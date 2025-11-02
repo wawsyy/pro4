@@ -36,14 +36,20 @@ export default function Home() {
     isDecrypting,
     isAuthorizing,
     fheStatus,
+    isActive,
+    surveyDeadline,
     refreshSurvey,
     submitResponse,
     decryptTallies,
     authorizeViewer,
+    closeSurvey,
+    reopenSurvey,
+    extendDeadline,
   } = useEncryptedSurvey();
 
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [viewerAddress, setViewerAddress] = useState<string>("");
+  const [newDeadline, setNewDeadline] = useState<string>("");
 
   const fallbackTitle = surveyTitle || "Employee Experience Pulse 2025";
   const fallbackDescription =
@@ -59,7 +65,7 @@ export default function Home() {
   );
 
   const canSubmit =
-    selectedOption !== null && !isSubmitting && !hasResponded && isOnSupportedChain && Boolean(contractAddress);
+    selectedOption !== null && !isSubmitting && !hasResponded && isOnSupportedChain && Boolean(contractAddress) && isActive;
 
   const canDecrypt =
     !isDecrypting && isAuthorizedViewer && isOnSupportedChain && encryptedTallies.length > 0 && Boolean(contractAddress);
@@ -130,6 +136,7 @@ export default function Home() {
               <p className="text-sm text-slate-300">
                 Select the option that best reflects your current sentiment. Your answer is never visible in plaintext to
                 the contract or operator—only the final aggregate can be decrypted by authorized viewers.
+                {!isActive && <span className="text-amber-300"> Survey is currently closed.</span>}
               </p>
             </header>
             <form className="mt-6 space-y-4">
@@ -226,6 +233,25 @@ export default function Home() {
                     {isFetching ? "Refreshing…" : `${encryptedTallies.length || cardOptions.length} options`}
                   </span>
                 </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Survey status</span>
+                  <span
+                    className={clsx(
+                      "font-semibold",
+                      isActive ? "text-emerald-300" : "text-amber-300",
+                    )}
+                  >
+                    {isActive ? "Active" : "Closed"}
+                  </span>
+                </div>
+                {surveyDeadline > 0n && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Deadline</span>
+                    <span className="font-medium text-white">
+                      {new Date(Number(surveyDeadline) * 1000).toLocaleDateString()}
+                    </span>
+                  </div>
+                )}
               </div>
               <div className="mt-5 flex flex-col gap-3">
                 <button
@@ -279,6 +305,54 @@ export default function Home() {
                     Ask the administrator ({adminAddress ? truncate(adminAddress) : "admin"}) to whitelist your wallet.
                   </p>
                 ) : null}
+                {isAdmin && (
+                  <div className="mt-4 space-y-3 border-t border-white/10 pt-4">
+                    <div className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">
+                      Survey management
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      {isActive ? (
+                        <button
+                          type="button"
+                          onClick={() => closeSurvey()}
+                          className="inline-flex items-center justify-center rounded-full bg-amber-500 px-4 py-2 text-sm font-semibold text-amber-950 transition hover:bg-amber-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-200/80"
+                        >
+                          Close Survey
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => reopenSurvey()}
+                          className="inline-flex items-center justify-center rounded-full bg-emerald-500 px-4 py-2 text-sm font-semibold text-emerald-950 transition hover:bg-emerald-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-200/80"
+                        >
+                          Reopen Survey
+                        </button>
+                      )}
+                      <div className="flex flex-col gap-2 sm:flex-row">
+                        <input
+                          type="datetime-local"
+                          value={newDeadline}
+                          onChange={(event) => setNewDeadline(event.target.value)}
+                          className="flex-1 rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm text-white placeholder:text-slate-400 focus:border-indigo-300 focus:outline-none focus:ring-0"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (newDeadline) {
+                              const timestamp = Math.floor(new Date(newDeadline).getTime() / 1000);
+                              void extendDeadline(timestamp);
+                              setNewDeadline("");
+                            }
+                          }}
+                          disabled={!newDeadline}
+                          className="inline-flex items-center justify-center rounded-full px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-slate-400 bg-indigo-500 text-white hover:bg-indigo-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-200/80"
+                        >
+                          Extend Deadline
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 

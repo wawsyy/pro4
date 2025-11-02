@@ -65,6 +65,8 @@ export function useEncryptedSurvey() {
   const [authorizedViewers, setAuthorizedViewers] = useState<`0x${string}`[]>([]);
   const [adminAddress, setAdminAddress] = useState<`0x${string}` | undefined>(undefined);
   const [hasResponded, setHasResponded] = useState<boolean>(false);
+  const [isActive, setIsActive] = useState<boolean>(true);
+  const [surveyDeadline, setSurveyDeadline] = useState<bigint>(0n);
 
   const [isFetching, setIsFetching] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -114,7 +116,7 @@ export function useEncryptedSurvey() {
     setIsFetching(true);
 
     try {
-      const [title, description, optionCount, tallies, viewers, admin] = await Promise.all([
+      const [title, description, optionCount, tallies, viewers, admin, active, deadline] = await Promise.all([
         publicClient.readContract({
           abi: contractInfo.abi,
           address: contractAddress,
@@ -145,6 +147,16 @@ export function useEncryptedSurvey() {
           address: contractAddress,
           functionName: "admin",
         }) as Promise<`0x${string}`>,
+        publicClient.readContract({
+          abi: contractInfo.abi,
+          address: contractAddress,
+          functionName: "isActive",
+        }) as Promise<boolean>,
+        publicClient.readContract({
+          abi: contractInfo.abi,
+          address: contractAddress,
+          functionName: "surveyDeadline",
+        }) as Promise<bigint>,
       ]);
 
       const optionLabels = await Promise.all(
@@ -164,6 +176,8 @@ export function useEncryptedSurvey() {
       setEncryptedTallies(tallies.map((value) => value));
       setAuthorizedViewers(viewers.map((v) => v));
       setAdminAddress(admin);
+      setIsActive(active);
+      setSurveyDeadline(deadline);
 
       if (address) {
         const responded = await publicClient.readContract({
@@ -343,6 +357,69 @@ export function useEncryptedSurvey() {
     address &&
     (address.toLowerCase() === adminAddress?.toLowerCase() || normalizedViewers.includes(address.toLowerCase()));
 
+  const closeSurvey = useCallback(async () => {
+    if (!contractAddress || !ethersSigner) {
+      setMessage("Connect with the survey administrator wallet.");
+      return;
+    }
+
+    setMessage("Closing survey...");
+
+    try {
+      const contract = new ethers.Contract(contractAddress, contractInfo.abi, ethersSigner);
+      const tx = await contract.closeSurvey();
+      await tx.wait();
+
+      setMessage("Survey closed successfully.");
+      await refreshSurvey();
+    } catch (error) {
+      console.error("[useEncryptedSurvey] closeSurvey error", error);
+      setMessage("Failed to close survey.");
+    }
+  }, [contractAddress, contractInfo.abi, ethersSigner, refreshSurvey]);
+
+  const reopenSurvey = useCallback(async () => {
+    if (!contractAddress || !ethersSigner) {
+      setMessage("Connect with the survey administrator wallet.");
+      return;
+    }
+
+    setMessage("Reopening survey...");
+
+    try {
+      const contract = new ethers.Contract(contractAddress, contractInfo.abi, ethersSigner);
+      const tx = await contract.reopenSurvey();
+      await tx.wait();
+
+      setMessage("Survey reopened successfully.");
+      await refreshSurvey();
+    } catch (error) {
+      console.error("[useEncryptedSurvey] reopenSurvey error", error);
+      setMessage("Failed to reopen survey.");
+    }
+  }, [contractAddress, contractInfo.abi, ethersSigner, refreshSurvey]);
+
+  const extendDeadline = useCallback(async (newDeadline: number) => {
+    if (!contractAddress || !ethersSigner) {
+      setMessage("Connect with the survey administrator wallet.");
+      return;
+    }
+
+    setMessage("Extending survey deadline...");
+
+    try {
+      const contract = new ethers.Contract(contractAddress, contractInfo.abi, ethersSigner);
+      const tx = await contract.extendDeadline(BigInt(newDeadline));
+      await tx.wait();
+
+      setMessage("Survey deadline extended successfully.");
+      await refreshSurvey();
+    } catch (error) {
+      console.error("[useEncryptedSurvey] extendDeadline error", error);
+      setMessage("Failed to extend survey deadline.");
+    }
+  }, [contractAddress, contractInfo.abi, ethersSigner, refreshSurvey]);
+
   return {
     surveyTitle,
     surveyDescription,
@@ -361,10 +438,15 @@ export function useEncryptedSurvey() {
     isDecrypting,
     isAuthorizing,
     fheStatus,
+    isActive,
+    surveyDeadline,
     refreshSurvey,
     submitResponse,
     decryptTallies,
     authorizeViewer,
+    closeSurvey,
+    reopenSurvey,
+    extendDeadline,
   };
 
 }
