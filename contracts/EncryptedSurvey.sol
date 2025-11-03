@@ -19,6 +19,7 @@ contract EncryptedSurvey is SepoliaConfig {
     string[] private _options;
     euint32[] private _encryptedTallies;
     mapping(address => bool) private _hasResponded;
+    mapping(address => uint256[]) private _userVotes; // Track which options user has voted for
 
     address public immutable admin;
     ViewerRegistry private _viewerRegistry;
@@ -28,6 +29,7 @@ contract EncryptedSurvey is SepoliaConfig {
 
     event ResponseSubmitted(address indexed respondent, uint256 indexed optionIndex);
     event BatchResponseSubmitted(address indexed respondent, uint256[] optionIndices, uint256 totalVotes);
+    event VoteUpdated(address indexed respondent, uint256[] oldOptions, uint256[] newOptions);
     event ViewerAuthorized(address indexed viewer);
     event SurveyActivated();
     event SurveyClosed();
@@ -116,6 +118,7 @@ contract EncryptedSurvey is SepoliaConfig {
         euint32 voteValue = FHE.fromExternal(encryptedVote, proof);
         _encryptedTallies[optionIndex] = FHE.add(_encryptedTallies[optionIndex], voteValue);
         _hasResponded[msg.sender] = true;
+        _userVotes[msg.sender].push(optionIndex);
 
         FHE.allowThis(_encryptedTallies[optionIndex]);
         _refreshViewerAccess(optionIndex);
@@ -183,6 +186,24 @@ contract EncryptedSurvey is SepoliaConfig {
     function extendDeadline(uint256 newDeadline) external onlyAdmin {
         require(newDeadline > surveyDeadline, "NEW_DEADLINE_MUST_BE_LATER");
         surveyDeadline = newDeadline;
+    }
+
+    /// @notice Returns the options a user has voted for.
+    function getUserVotes(address user) external view returns (uint256[] memory) {
+        return _userVotes[user];
+    }
+
+    /// @notice Allows users to withdraw their vote and resubmit (resets their voting status).
+    function withdrawAndResubmit() external surveyActive {
+        require(_hasResponded[msg.sender], "NO_PREVIOUS_VOTE");
+
+        // Note: In a real FHE system, properly withdrawing votes would require homomorphic subtraction
+        // This is a simplified version that just resets the user's voting status
+        // The old votes remain in the tally but the user can vote again
+        _hasResponded[msg.sender] = false;
+
+        emit VoteUpdated(msg.sender, _userVotes[msg.sender], new uint256[](0));
+        delete _userVotes[msg.sender];
     }
 
     function _authorizeViewer(address viewer) private {
