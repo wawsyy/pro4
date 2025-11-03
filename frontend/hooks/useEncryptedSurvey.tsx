@@ -72,6 +72,7 @@ export function useEncryptedSurvey() {
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [isDecrypting, setIsDecrypting] = useState<boolean>(false);
   const [isAuthorizing, setIsAuthorizing] = useState<boolean>(false);
+  const [isBatchSubmitting, setIsBatchSubmitting] = useState<boolean>(false);
   const [message, setMessage] = useState<string>("");
 
   const contractAddress = contractInfo.address;
@@ -240,6 +241,56 @@ export function useEncryptedSurvey() {
         setMessage("Failed to submit your response. Please try again.");
       } finally {
         setIsSubmitting(false);
+      }
+    },
+    [contractAddress, contractInfo.abi, ethersSigner, instance, refreshSurvey],
+  );
+
+  const submitBatchResponse = useCallback(
+    async (optionIndices: number[]) => {
+      if (!contractAddress || !ethersSigner || !instance) {
+        setMessage("Connect your wallet to submit responses.");
+        return;
+      }
+
+      if (typeof optionIndices === "undefined" || optionIndices.length === 0) {
+        setMessage("Select at least one option before submitting.");
+        return;
+      }
+
+      setIsBatchSubmitting(true);
+      setMessage("Encrypting your batch responses...");
+
+      try {
+        const input = instance.createEncryptedInput(
+          contractAddress,
+          await ethersSigner.getAddress(),
+        );
+
+        // Add encrypted votes for each selected option
+        for (let i = 0; i < optionIndices.length; i++) {
+          input.add32(1);
+        }
+
+        const encrypted = await input.encrypt();
+
+        setMessage("Submitting encrypted batch response...");
+        const contract = new ethers.Contract(contractAddress, contractInfo.abi, ethersSigner);
+
+        // Create arrays for the batch submission
+        const encryptedVotes = encrypted.handles;
+        const proofs = encrypted.inputProof;
+
+        const tx = await contract.submitBatchResponse(optionIndices, encryptedVotes, proofs);
+        await tx.wait();
+
+        setMessage("Batch responses submitted successfully.");
+        await refreshSurvey();
+      } catch (error) {
+        console.error("[useEncryptedSurvey] submitBatchResponse error", error);
+        setMessage("Failed to submit your batch responses. Please try again.");
+      } finally {
+        setIsBatchSubmitting(false);
       }
     },
     [contractAddress, contractInfo.abi, ethersSigner, instance, refreshSurvey],
@@ -437,11 +488,13 @@ export function useEncryptedSurvey() {
     isSubmitting,
     isDecrypting,
     isAuthorizing,
+    isBatchSubmitting,
     fheStatus,
     isActive,
     surveyDeadline,
     refreshSurvey,
     submitResponse,
+    submitBatchResponse,
     decryptTallies,
     authorizeViewer,
     closeSurvey,

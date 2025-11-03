@@ -35,11 +35,13 @@ export default function Home() {
     isSubmitting,
     isDecrypting,
     isAuthorizing,
+    isBatchSubmitting,
     fheStatus,
     isActive,
     surveyDeadline,
     refreshSurvey,
     submitResponse,
+    submitBatchResponse,
     decryptTallies,
     authorizeViewer,
     closeSurvey,
@@ -48,6 +50,8 @@ export default function Home() {
   } = useEncryptedSurvey();
 
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
+  const [selectedOptions, setSelectedOptions] = useState<Set<number>>(new Set());
+  const [isBatchMode, setIsBatchMode] = useState<boolean>(false);
   const [viewerAddress, setViewerAddress] = useState<string>("");
   const [newDeadline, setNewDeadline] = useState<string>("");
 
@@ -65,7 +69,13 @@ export default function Home() {
   );
 
   const canSubmit =
-    selectedOption !== null && !isSubmitting && !hasResponded && isOnSupportedChain && Boolean(contractAddress) && isActive;
+    ((selectedOption !== null && !isBatchMode) || (selectedOptions.size > 0 && isBatchMode)) &&
+    !isSubmitting &&
+    !isBatchSubmitting &&
+    !hasResponded &&
+    isOnSupportedChain &&
+    Boolean(contractAddress) &&
+    isActive;
 
   const canDecrypt =
     !isDecrypting && isAuthorizedViewer && isOnSupportedChain && encryptedTallies.length > 0 && Boolean(contractAddress);
@@ -139,10 +149,42 @@ export default function Home() {
                 {!isActive && <span className="text-amber-300"> Survey is currently closed.</span>}
               </p>
             </header>
+            <div className="mt-4 flex items-center justify-between">
+              <label className="flex items-center gap-2 text-sm text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={isBatchMode}
+                  onChange={(e) => {
+                    setIsBatchMode(e.target.checked);
+                    if (e.target.checked) {
+                      setSelectedOption(null);
+                    } else {
+                      setSelectedOptions(new Set());
+                    }
+                  }}
+                  className="h-4 w-4 rounded border-slate-400 text-indigo-400 focus:ring-indigo-400"
+                />
+                Enable batch mode (select multiple options)
+              </label>
+            </div>
             <form className="mt-6 space-y-4">
               {cardOptions.map((optionLabel, index) => {
-                const isSelected = selectedOption === index;
+                const isSelected = isBatchMode ? selectedOptions.has(index) : selectedOption === index;
                 const disabled = hasResponded;
+
+                const handleToggle = () => {
+                  if (isBatchMode) {
+                    const newSelected = new Set(selectedOptions);
+                    if (newSelected.has(index)) {
+                      newSelected.delete(index);
+                    } else {
+                      newSelected.add(index);
+                    }
+                    setSelectedOptions(newSelected);
+                  } else {
+                    setSelectedOption(selectedOption === index ? null : index);
+                  }
+                };
 
                 return (
                   <label
@@ -165,12 +207,12 @@ export default function Home() {
                       </span>
                     </div>
                     <input
-                      type="radio"
-                      name="survey-option"
+                      type={isBatchMode ? "checkbox" : "radio"}
+                      name={isBatchMode ? `survey-option-${index}` : "survey-option"}
                       value={index}
                       checked={isSelected}
                       disabled={disabled}
-                      onChange={() => setSelectedOption(index)}
+                      onChange={handleToggle}
                       className="h-5 w-5 cursor-pointer accent-indigo-400"
                     />
                   </label>
@@ -180,7 +222,13 @@ export default function Home() {
             <div className="mt-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <button
                 type="button"
-                onClick={() => (selectedOption !== null ? submitResponse(selectedOption) : undefined)}
+                onClick={() => {
+                  if (isBatchMode) {
+                    void submitBatchResponse(Array.from(selectedOptions));
+                  } else if (selectedOption !== null) {
+                    void submitResponse(selectedOption);
+                  }
+                }}
                 disabled={!canSubmit}
                 className={clsx(
                   "inline-flex w-full items-center justify-center rounded-full px-6 py-3 text-sm font-semibold transition md:w-auto",
@@ -189,7 +237,13 @@ export default function Home() {
                     : "cursor-not-allowed bg-white/10 text-slate-400",
                 )}
               >
-                {isSubmitting ? "Encrypting & submitting…" : hasResponded ? "Response captured" : "Submit encrypted vote"}
+                {isSubmitting || isBatchSubmitting
+                  ? "Encrypting & submitting…"
+                  : hasResponded
+                    ? "Response captured"
+                    : isBatchMode
+                      ? `Submit ${selectedOptions.size} encrypted votes`
+                      : "Submit encrypted vote"}
               </button>
               <p className="text-xs text-slate-400">
                 Ciphertexts refresh automatically. Admins can decrypt final tallies with the button on the right.
