@@ -73,6 +73,7 @@ export function useEncryptedSurvey() {
   const [isDecrypting, setIsDecrypting] = useState<boolean>(false);
   const [isAuthorizing, setIsAuthorizing] = useState<boolean>(false);
   const [isBatchSubmitting, setIsBatchSubmitting] = useState<boolean>(false);
+  const [userVotes, setUserVotes] = useState<`0x${string}`[]>([]);
   const [message, setMessage] = useState<string>("");
 
   const contractAddress = contractInfo.address;
@@ -188,8 +189,22 @@ export function useEncryptedSurvey() {
           args: [address],
         });
         setHasResponded(Boolean(responded));
+
+        // Fetch user votes if they have responded
+        if (address && Boolean(responded)) {
+          const votes = await publicClient.readContract({
+            abi: contractInfo.abi,
+            address: contractAddress,
+            functionName: "getUserVotes",
+            args: [address],
+          }) as readonly `0x${string}`[];
+          setUserVotes(votes.map((v) => v));
+        } else {
+          setUserVotes([]);
+        }
       } else {
         setHasResponded(false);
+        setUserVotes([]);
       }
     } catch (error) {
       console.error("[useEncryptedSurvey] Unable to refresh survey data", error);
@@ -471,6 +486,27 @@ export function useEncryptedSurvey() {
     }
   }, [contractAddress, contractInfo.abi, ethersSigner, refreshSurvey]);
 
+  const withdrawAndResubmit = useCallback(async () => {
+    if (!contractAddress || !ethersSigner) {
+      setMessage("Connect your wallet to withdraw your vote.");
+      return;
+    }
+
+    setMessage("Withdrawing your vote...");
+
+    try {
+      const contract = new ethers.Contract(contractAddress, contractInfo.abi, ethersSigner);
+      const tx = await contract.withdrawAndResubmit();
+      await tx.wait();
+
+      setMessage("Vote withdrawn successfully. You can now resubmit.");
+      await refreshSurvey();
+    } catch (error) {
+      console.error("[useEncryptedSurvey] withdrawAndResubmit error", error);
+      setMessage("Failed to withdraw vote.");
+    }
+  }, [contractAddress, contractInfo.abi, ethersSigner, refreshSurvey]);
+
   return {
     surveyTitle,
     surveyDescription,
@@ -492,6 +528,7 @@ export function useEncryptedSurvey() {
     fheStatus,
     isActive,
     surveyDeadline,
+    userVotes,
     refreshSurvey,
     submitResponse,
     submitBatchResponse,
@@ -500,6 +537,7 @@ export function useEncryptedSurvey() {
     closeSurvey,
     reopenSurvey,
     extendDeadline,
+    withdrawAndResubmit,
   };
 
 }

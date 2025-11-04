@@ -39,6 +39,7 @@ export default function Home() {
     fheStatus,
     isActive,
     surveyDeadline,
+    userVotes,
     refreshSurvey,
     submitResponse,
     submitBatchResponse,
@@ -47,6 +48,7 @@ export default function Home() {
     closeSurvey,
     reopenSurvey,
     extendDeadline,
+    withdrawAndResubmit,
   } = useEncryptedSurvey();
 
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
@@ -252,6 +254,32 @@ export default function Home() {
             {message && (
               <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 px-5 py-3 text-sm text-slate-200">
                 {message}
+              </div>
+            )}
+
+            {hasResponded && userVotes.length > 0 && (
+              <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-5">
+                <div className="text-sm font-semibold uppercase tracking-[0.3em] text-slate-300 mb-3">Your votes</div>
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {userVotes.map((voteIndex, idx) => {
+                    const optionIndex = Number(voteIndex);
+                    const optionLabel = cardOptions[optionIndex] || `Option ${optionIndex}`;
+                    return (
+                      <span key={idx} className="rounded-full bg-indigo-400/20 px-3 py-1 text-sm text-indigo-200">
+                        {optionLabel}
+                      </span>
+                    );
+                  })}
+                </div>
+                {isActive && (
+                  <button
+                    type="button"
+                    onClick={() => withdrawAndResubmit()}
+                    className="inline-flex items-center justify-center rounded-full bg-amber-500 px-4 py-2 text-sm font-semibold text-amber-950 transition hover:bg-amber-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-200/80"
+                  >
+                    Withdraw & Resubmit
+                  </button>
+                )}
               </div>
             )}
           </section>
