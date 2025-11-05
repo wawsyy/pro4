@@ -74,6 +74,12 @@ export function useEncryptedSurvey() {
   const [isAuthorizing, setIsAuthorizing] = useState<boolean>(false);
   const [isBatchSubmitting, setIsBatchSubmitting] = useState<boolean>(false);
   const [userVotes, setUserVotes] = useState<`0x${string}`[]>([]);
+  const [surveyStats, setSurveyStats] = useState<{
+    totalOptions: bigint;
+    activeStatus: bigint;
+    deadline: bigint;
+    participantCount: bigint;
+  } | null>(null);
   const [message, setMessage] = useState<string>("");
 
   const contractAddress = contractInfo.address;
@@ -180,6 +186,19 @@ export function useEncryptedSurvey() {
       setAdminAddress(admin);
       setIsActive(active);
       setSurveyDeadline(deadline);
+
+      // Fetch survey statistics
+      const stats = await publicClient.readContract({
+        abi: contractInfo.abi,
+        address: contractAddress,
+        functionName: "getSurveyStats",
+      }) as readonly [bigint, bigint, bigint, bigint];
+      setSurveyStats({
+        totalOptions: stats[0],
+        activeStatus: stats[1],
+        deadline: stats[2],
+        participantCount: stats[3],
+      });
 
       if (address) {
         const responded = await publicClient.readContract({
@@ -529,6 +548,7 @@ export function useEncryptedSurvey() {
     isActive,
     surveyDeadline,
     userVotes,
+    surveyStats,
     refreshSurvey,
     submitResponse,
     submitBatchResponse,

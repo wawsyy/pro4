@@ -40,6 +40,7 @@ export default function Home() {
     isActive,
     surveyDeadline,
     userVotes,
+    surveyStats,
     refreshSurvey,
     submitResponse,
     submitBatchResponse,
@@ -331,6 +332,14 @@ export default function Home() {
                     <span className="text-slate-400">Deadline</span>
                     <span className="font-medium text-white">
                       {new Date(Number(surveyDeadline) * 1000).toLocaleDateString()}
+                    </span>
+                  </div>
+                )}
+                {surveyStats && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Participation</span>
+                    <span className="font-medium text-white">
+                      {Number(surveyStats.participantCount)} responses
                     </span>
                   </div>
                 )}
