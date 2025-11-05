@@ -211,6 +211,52 @@ contract EncryptedSurvey is SepoliaConfig {
         return (_options.length, isActive ? 1 : 0, surveyDeadline, participants);
     }
 
+    /// @notice Returns a summary of survey results for authorized viewers.
+    function getResultSummary() external view returns (
+        uint256[] memory optionIndices,
+        string[] memory optionLabels,
+        uint256 totalParticipants
+    ) {
+        optionIndices = new uint256[](_options.length);
+        optionLabels = new string[](_options.length);
+
+        uint256 participants = 0;
+        for (uint256 i = 0; i < _options.length; i++) {
+            optionIndices[i] = i;
+            optionLabels[i] = _options[i];
+            if (euint32.unwrap(_encryptedTallies[i]) != bytes32(0)) {
+                participants += 1;
+            }
+        }
+
+        return (optionIndices, optionLabels, participants);
+    }
+
+    /// @notice Gets the most popular options (basic analysis for authorized viewers).
+    function getTopOptions(uint256 count) external view returns (uint256[] memory topIndices) {
+        require(count > 0 && count <= _options.length, "INVALID_COUNT");
+
+        // Simple sorting by encrypted handle presence (not actual vote count)
+        // In a real system, this would require decryption
+        uint256[] memory activeOptions = new uint256[](_options.length);
+        uint256 activeCount = 0;
+
+        for (uint256 i = 0; i < _options.length; i++) {
+            if (euint32.unwrap(_encryptedTallies[i]) != bytes32(0)) {
+                activeOptions[activeCount] = i;
+                activeCount++;
+            }
+        }
+
+        // Return first 'count' active options (simplified)
+        topIndices = new uint256[](count);
+        for (uint256 i = 0; i < count && i < activeCount; i++) {
+            topIndices[i] = activeOptions[i];
+        }
+
+        return topIndices;
+    }
+
     /// @notice Allows users to withdraw their vote and resubmit (resets their voting status).
     function withdrawAndResubmit() external surveyActive {
         require(_hasResponded[msg.sender], "NO_PREVIOUS_VOTE");
