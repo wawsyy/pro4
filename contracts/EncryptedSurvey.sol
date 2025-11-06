@@ -12,7 +12,11 @@ contract EncryptedSurvey is SepoliaConfig {
     struct ViewerRegistry {
         address[] viewers;
         mapping(address => bool) isAuthorized;
+        mapping(address => uint256) accessLevel; // 1: Basic viewer, 2: Analyst, 3: Admin
+        mapping(address => uint256) accessExpiry;
     }
+
+    enum ViewerRole { Basic, Analyst, Admin }
 
     string public surveyTitle;
     string public surveyDescription;
@@ -161,7 +165,12 @@ contract EncryptedSurvey is SepoliaConfig {
 
     /// @notice Grants permission for a viewer to decrypt the current tallies.
     function authorizeViewer(address viewer) external onlyAdmin {
-        _authorizeViewer(viewer);
+        _authorizeViewerWithRole(viewer, uint256(ViewerRole.Basic), 0);
+    }
+
+    /// @notice Grants permission for a viewer with specific role and expiry.
+    function authorizeViewerWithRole(address viewer, ViewerRole role, uint256 expiryTimestamp) external onlyAdmin {
+        _authorizeViewerWithRole(viewer, uint256(role), expiryTimestamp);
     }
 
     /// @notice Returns the list of currently authorized viewers.
@@ -186,6 +195,53 @@ contract EncryptedSurvey is SepoliaConfig {
     function extendDeadline(uint256 newDeadline) external onlyAdmin {
         require(newDeadline > surveyDeadline, "NEW_DEADLINE_MUST_BE_LATER");
         surveyDeadline = newDeadline;
+    }
+
+    /// @notice Revokes viewer authorization.
+    function revokeViewer(address viewer) external onlyAdmin {
+        require(_viewerRegistry.isAuthorized[viewer], "VIEWER_NOT_AUTHORIZED");
+
+        _viewerRegistry.isAuthorized[viewer] = false;
+        _viewerRegistry.accessLevel[viewer] = 0;
+        _viewerRegistry.accessExpiry[viewer] = 0;
+
+        // Remove from viewers array (simplified - creates gap but maintains order)
+        for (uint256 i = 0; i < _viewerRegistry.viewers.length; i++) {
+            if (_viewerRegistry.viewers[i] == viewer) {
+                _viewerRegistry.viewers[i] = _viewerRegistry.viewers[_viewerRegistry.viewers.length - 1];
+                _viewerRegistry.viewers.pop();
+                break;
+            }
+        }
+    }
+
+    /// @notice Checks if a viewer has valid access (not expired).
+    function hasValidAccess(address viewer) external view returns (bool) {
+        if (!_viewerRegistry.isAuthorized[viewer]) {
+            return false;
+        }
+
+        uint256 expiry = _viewerRegistry.accessExpiry[viewer];
+        if (expiry > 0 && block.timestamp > expiry) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /// @notice Gets viewer role and access details.
+    function getViewerDetails(address viewer) external view returns (
+        bool isAuthorized,
+        uint256 role,
+        uint256 expiry,
+        bool hasAccess
+    ) {
+        bool authorized = _viewerRegistry.isAuthorized[viewer];
+        uint256 viewerRole = _viewerRegistry.accessLevel[viewer];
+        uint256 viewerExpiry = _viewerRegistry.accessExpiry[viewer];
+        bool access = authorized && (viewerExpiry == 0 || block.timestamp <= viewerExpiry);
+
+        return (authorized, viewerRole, viewerExpiry, access);
     }
 
     /// @notice Returns the options a user has voted for.
@@ -291,7 +347,7 @@ contract EncryptedSurvey is SepoliaConfig {
         delete _userVotes[msg.sender];
     }
 
-    function _authorizeViewer(address viewer) private {
+    function _authorizeViewerWithRole(address viewer, uint256 role, uint256 expiry) private {
         if (viewer == address(0)) {
             revert InvalidViewer();
         }
@@ -301,8 +357,17 @@ contract EncryptedSurvey is SepoliaConfig {
             _viewerRegistry.viewers.push(viewer);
         }
 
+        _viewerRegistry.accessLevel[viewer] = role;
+        if (expiry > 0) {
+            _viewerRegistry.accessExpiry[viewer] = expiry;
+        }
+
         _allowTalliesForViewer(viewer);
         emit ViewerAuthorized(viewer);
+    }
+
+    function _authorizeViewer(address viewer) private {
+        _authorizeViewerWithRole(viewer, uint256(ViewerRole.Basic), 0);
     }
 
     function _refreshViewerAccess(uint256 optionIndex) private {
