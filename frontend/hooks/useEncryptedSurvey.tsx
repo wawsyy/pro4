@@ -80,6 +80,11 @@ export function useEncryptedSurvey() {
     deadline: bigint;
     participantCount: bigint;
   } | null>(null);
+  const [resultSummary, setResultSummary] = useState<{
+    optionIndices: readonly bigint[];
+    optionLabels: readonly string[];
+    totalParticipants: bigint;
+  } | null>(null);
   const [message, setMessage] = useState<string>("");
 
   const contractAddress = contractInfo.address;
@@ -198,6 +203,18 @@ export function useEncryptedSurvey() {
         activeStatus: stats[1],
         deadline: stats[2],
         participantCount: stats[3],
+      });
+
+      // Fetch result summary
+      const summary = await publicClient.readContract({
+        abi: contractInfo.abi,
+        address: contractAddress,
+        functionName: "getResultSummary",
+      }) as readonly [readonly bigint[], readonly string[], bigint];
+      setResultSummary({
+        optionIndices: summary[0],
+        optionLabels: summary[1],
+        totalParticipants: summary[2],
       });
 
       if (address) {
@@ -549,6 +566,7 @@ export function useEncryptedSurvey() {
     surveyDeadline,
     userVotes,
     surveyStats,
+    resultSummary,
     refreshSurvey,
     submitResponse,
     submitBatchResponse,

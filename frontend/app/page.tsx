@@ -41,6 +41,7 @@ export default function Home() {
     surveyDeadline,
     userVotes,
     surveyStats,
+    resultSummary,
     refreshSurvey,
     submitResponse,
     submitBatchResponse,
@@ -476,15 +477,32 @@ export default function Home() {
         <section className="glass-panel mt-10 overflow-hidden rounded-3xl">
           <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 px-8 py-6">
             <div>
-              <div className="text-sm font-semibold uppercase tracking-[0.3em] text-slate-300">Aggregated results</div>
+              <div className="text-sm font-semibold uppercase tracking-[0.3em] text-slate-300">Survey Dashboard</div>
               <p className="text-sm text-slate-300">
-                Ciphertext handles stay encrypted on-chain. Authorized viewers can unlock the anonymized totals below.
+                Real-time survey analytics and encrypted result visualization.
               </p>
             </div>
             <div className="rounded-full bg-white/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-slate-200">
               {decryptedTallies.length > 0 ? "Decryption complete" : "Encrypted"}
             </div>
           </div>
+
+          {resultSummary && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 px-8 py-6 border-b border-white/10">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-white">{Number(resultSummary.totalParticipants)}</div>
+                <div className="text-sm text-slate-400 uppercase tracking-wide">Total Responses</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-white">{resultSummary.optionLabels.length}</div>
+                <div className="text-sm text-slate-400 uppercase tracking-wide">Survey Options</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-white">{isActive ? "Active" : "Closed"}</div>
+                <div className="text-sm text-slate-400 uppercase tracking-wide">Survey Status</div>
+              </div>
+            </div>
+          )}
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-white/10 text-left text-sm text-slate-100">
               <thead>
