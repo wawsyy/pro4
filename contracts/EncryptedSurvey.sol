@@ -257,6 +257,27 @@ contract EncryptedSurvey is SepoliaConfig {
         return topIndices;
     }
 
+    /// @notice Returns comprehensive survey metadata.
+    function getSurveyMetadata() external view returns (
+        string memory title,
+        string memory description,
+        uint256 optionCount,
+        bool active,
+        uint256 deadline,
+        address adminAddr,
+        uint256 viewerCount
+    ) {
+        return (
+            surveyTitle,
+            surveyDescription,
+            _options.length,
+            isActive,
+            surveyDeadline,
+            admin,
+            _viewerRegistry.viewers.length
+        );
+    }
+
     /// @notice Allows users to withdraw their vote and resubmit (resets their voting status).
     function withdrawAndResubmit() external surveyActive {
         require(_hasResponded[msg.sender], "NO_PREVIOUS_VOTE");
