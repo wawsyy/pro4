@@ -135,16 +135,7 @@ export function useEncryptedSurvey() {
     setIsFetching(true);
 
     try {
-      const [
-        title,
-        description,
-        optionCount,
-        tallies,
-        viewers,
-        admin,
-        active,
-        deadline,
-      ] = ((await Promise.all([
+      const aggregatedResults = await Promise.all([
         publicClient.readContract({
           abi: contractInfo.abi,
           address: contractAddress,
@@ -185,7 +176,18 @@ export function useEncryptedSurvey() {
           address: contractAddress,
           functionName: "surveyDeadline",
         }),
-      ])) as unknown as [
+      ]);
+
+      const [
+        title,
+        description,
+        optionCount,
+        tallies,
+        viewers,
+        admin,
+        active,
+        deadline,
+      ] = aggregatedResults as [
         string,
         string,
         bigint,
