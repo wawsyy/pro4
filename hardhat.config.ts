@@ -62,6 +62,7 @@ const config: HardhatUserConfig = {
       accounts: sepoliaAccounts,
       chainId: 11155111,
       url: `https://sepolia.infura.io/v3/${INFURA_API_KEY}`,
+      gasPrice: 20000000000, // 20 gwei
     },
   },
   paths: {
@@ -90,6 +91,12 @@ const config: HardhatUserConfig = {
   typechain: {
     outDir: "types",
     target: "ethers-v6",
+  },
+  external: {
+    deployments: {
+      hardhat: ["deployments/localhost"],
+      sepolia: ["deployments/sepolia"],
+    },
   },
 };
 
