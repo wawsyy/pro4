@@ -1,22 +1,22 @@
-import "@fhevm/hardhat-plugin";
-import "@nomicfoundation/hardhat-chai-matchers";
-import "@nomicfoundation/hardhat-ethers";
-import "@nomicfoundation/hardhat-verify";
-import "@typechain/hardhat";
-import "hardhat-deploy";
-import "hardhat-gas-reporter";
-import type { HardhatUserConfig } from "hardhat/config";
-import { vars } from "hardhat/config";
-import "solidity-coverage";
+require("@fhevm/hardhat-plugin");
+require("@nomicfoundation/hardhat-chai-matchers");
+require("@nomicfoundation/hardhat-ethers");
+require("@nomicfoundation/hardhat-verify");
+require("@typechain/hardhat");
+require("hardhat-deploy");
+require("hardhat-gas-reporter");
+require("solidity-coverage");
 
-import "./tasks/accounts";
-import "./tasks/EncryptedSurvey";
+// require("./tasks/accounts");
+// require("./tasks/EncryptedSurvey");
 
 // Run 'npx hardhat vars setup' to see the list of variables that need to be set
 
-const MNEMONIC: string = vars.get("MNEMONIC", "test test test test test test test test test test test junk");
-const PRIVATE_KEY: string = vars.get("PRIVATE_KEY", "");
-const INFURA_API_KEY: string = vars.get("INFURA_API_KEY", "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz");
+const { vars } = require("hardhat/config");
+
+const MNEMONIC = vars.get("MNEMONIC", "test test test test test test test test test test test junk");
+const PRIVATE_KEY = vars.get("PRIVATE_KEY", "");
+const INFURA_API_KEY = vars.get("INFURA_API_KEY", "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz");
 
 const sepoliaAccounts =
   PRIVATE_KEY && PRIVATE_KEY.trim().length > 0
@@ -27,7 +27,7 @@ const sepoliaAccounts =
         count: 10,
       };
 
-const config: HardhatUserConfig = {
+const config = {
   defaultNetwork: "hardhat",
   namedAccounts: {
     deployer: 0,
@@ -100,4 +100,4 @@ const config: HardhatUserConfig = {
   },
 };
 
-export default config;
+module.exports = config;
