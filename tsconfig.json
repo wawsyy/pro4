@@ -15,7 +15,8 @@
     "resolveJsonModule": true,
     "sourceMap": true,
     "strict": true,
-    "target": "es2022" // get error cause (ErrorOptions)
+    "target": "es2022", // get error cause (ErrorOptions)
+    "types": ["node", "hardhat", "hardhat-deploy"]
   },
   "exclude": ["node_modules"],
   "files": ["./hardhat.config.ts"],

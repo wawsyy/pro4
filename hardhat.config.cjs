@@ -1,3 +1,4 @@
+require("ts-node/register");
 require("@fhevm/hardhat-plugin");
 require("@nomicfoundation/hardhat-chai-matchers");
 require("@nomicfoundation/hardhat-ethers");
@@ -70,6 +71,7 @@ const config = {
     cache: "./cache",
     sources: "./contracts",
     tests: "./test",
+    deployments: "./deployments",
   },
   solidity: {
     version: "0.8.27",
@@ -94,7 +96,6 @@ const config = {
   },
   external: {
     deployments: {
-      hardhat: ["deployments/localhost"],
       sepolia: ["deployments/sepolia"],
     },
   },
