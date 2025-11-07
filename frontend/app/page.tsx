@@ -42,6 +42,7 @@ export default function Home() {
     userVotes,
     surveyStats,
     resultSummary,
+    viewerDetails,
     refreshSurvey,
     submitResponse,
     submitBatchResponse,
@@ -51,6 +52,7 @@ export default function Home() {
     reopenSurvey,
     extendDeadline,
     withdrawAndResubmit,
+    revokeViewer,
   } = useEncryptedSurvey();
 
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
@@ -452,20 +454,54 @@ export default function Home() {
               <div className="text-sm font-semibold uppercase tracking-[0.3em] text-slate-300">Authorized viewers</div>
               <ul className="mt-4 space-y-2 text-xs text-slate-200">
                 {authorizedViewers.length > 0 ? (
-                  authorizedViewers.map((viewer) => (
-                    <li key={viewer} className="flex items-center justify-between rounded-2xl bg-white/5 px-3 py-2">
-                      <span className="font-mono text-slate-300">{truncate(viewer)}</span>
-                      {viewer.toLowerCase() === adminAddress?.toLowerCase() ? (
-                        <span className="rounded-full bg-indigo-400/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-200">
-                          Admin
-                        </span>
-                      ) : (
-                        <span className="rounded-full bg-emerald-400/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-200">
-                          Viewer
-                        </span>
-                      )}
-                    </li>
-                  ))
+                  authorizedViewers.map((viewer) => {
+                    const details = viewerDetails[viewer.toLowerCase()];
+                    const roleLabels = ["Basic", "Analyst", "Admin"];
+
+                    return (
+                      <li key={viewer} className="flex items-center justify-between rounded-2xl bg-white/5 px-3 py-2">
+                        <div className="flex flex-col gap-1">
+                          <span className="font-mono text-slate-300">{truncate(viewer)}</span>
+                          {details && (
+                            <div className="flex items-center gap-2 text-[10px]">
+                              <span className={`rounded-full px-1.5 py-0.5 font-semibold uppercase tracking-wide ${
+                                details.role === 2n ? "bg-purple-400/20 text-purple-200" :
+                                details.role === 1n ? "bg-blue-400/20 text-blue-200" :
+                                "bg-emerald-400/20 text-emerald-200"
+                              }`}>
+                                {roleLabels[Number(details.role)] || "Basic"}
+                              </span>
+                              {details.expiry > 0n && (
+                                <span className="text-slate-400">
+                                  Expires: {new Date(Number(details.expiry) * 1000).toLocaleDateString()}
+                                </span>
+                              )}
+                              {!details.hasAccess && (
+                                <span className="text-red-400">Access expired</span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {viewer.toLowerCase() === adminAddress?.toLowerCase() ? (
+                            <span className="rounded-full bg-indigo-400/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-200">
+                              Admin
+                            </span>
+                          ) : (
+                            isAdmin && (
+                              <button
+                                type="button"
+                                onClick={() => revokeViewer(viewer)}
+                                className="rounded-full bg-red-500/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-red-200 hover:bg-red-500/30"
+                              >
+                                Revoke
+                              </button>
+                            )
+                          )}
+                        </div>
+                      </li>
+                    );
+                  })
                 ) : (
                   <li className="rounded-2xl bg-white/5 px-3 py-2 text-slate-400">No viewers authorized yet.</li>
                 )}

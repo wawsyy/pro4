@@ -85,6 +85,12 @@ export function useEncryptedSurvey() {
     optionLabels: readonly string[];
     totalParticipants: bigint;
   } | null>(null);
+  const [viewerDetails, setViewerDetails] = useState<Record<string, {
+    isAuthorized: boolean;
+    role: bigint;
+    expiry: bigint;
+    hasAccess: boolean;
+  }>>({});
   const [message, setMessage] = useState<string>("");
 
   const contractAddress = contractInfo.address;
@@ -187,8 +193,26 @@ export function useEncryptedSurvey() {
       setSurveyDescription(description);
       setOptions(optionLabels);
       setEncryptedTallies(tallies.map((value) => value));
-      setAuthorizedViewers(viewers.map((v) => v));
-      setAdminAddress(admin);
+        setAuthorizedViewers(viewers.map((v) => v));
+        setAdminAddress(admin);
+
+        // Fetch viewer details
+        const details: Record<string, any> = {};
+        for (const viewer of viewers) {
+          const viewerDetail = await publicClient.readContract({
+            abi: contractInfo.abi,
+            address: contractAddress,
+            functionName: "getViewerDetails",
+            args: [viewer],
+          }) as readonly [boolean, bigint, bigint, boolean];
+          details[viewer.toLowerCase()] = {
+            isAuthorized: viewerDetail[0],
+            role: viewerDetail[1],
+            expiry: viewerDetail[2],
+            hasAccess: viewerDetail[3],
+          };
+        }
+        setViewerDetails(details);
       setIsActive(active);
       setSurveyDeadline(deadline);
 
@@ -543,6 +567,27 @@ export function useEncryptedSurvey() {
     }
   }, [contractAddress, contractInfo.abi, ethersSigner, refreshSurvey]);
 
+  const revokeViewer = useCallback(async (viewer: string) => {
+    if (!contractAddress || !ethersSigner) {
+      setMessage("Connect with the survey administrator wallet.");
+      return;
+    }
+
+    setMessage("Revoking viewer access...");
+
+    try {
+      const contract = new ethers.Contract(contractAddress, contractInfo.abi, ethersSigner);
+      const tx = await contract.revokeViewer(viewer);
+      await tx.wait();
+
+      setMessage("Viewer access revoked successfully.");
+      await refreshSurvey();
+    } catch (error) {
+      console.error("[useEncryptedSurvey] revokeViewer error", error);
+      setMessage("Failed to revoke viewer access.");
+    }
+  }, [contractAddress, contractInfo.abi, ethersSigner, refreshSurvey]);
+
   return {
     surveyTitle,
     surveyDescription,
@@ -567,6 +612,7 @@ export function useEncryptedSurvey() {
     userVotes,
     surveyStats,
     resultSummary,
+    viewerDetails,
     refreshSurvey,
     submitResponse,
     submitBatchResponse,
@@ -576,6 +622,7 @@ export function useEncryptedSurvey() {
     reopenSurvey,
     extendDeadline,
     withdrawAndResubmit,
+    revokeViewer,
   };
 
 }
