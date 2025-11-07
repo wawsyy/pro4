@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ethers } from "ethers";
 import { useAccount, usePublicClient } from "wagmi";
+import type { Abi } from "viem";
 
 import { EncryptedSurveyABI } from "@/abi/EncryptedSurveyABI";
 import { EncryptedSurveyAddresses } from "@/abi/EncryptedSurveyAddresses";
@@ -12,7 +13,7 @@ import { useInMemoryStorage } from "@/hooks/useInMemoryStorage";
 import { FhevmDecryptionSignature } from "@/fhevm/FhevmDecryptionSignature";
 
 type ContractInfo = {
-  abi: typeof EncryptedSurveyABI.abi;
+  abi: Abi;
   address?: `0x${string}`;
   chainId?: number;
   chainName?: string;
