@@ -521,7 +521,11 @@ export function useEncryptedSurvey() {
     setMessage("Closing survey...");
 
     try {
-      const contract = new ethers.Contract(contractAddress, contractInfo.abi, ethersSigner);
+      const contract = new ethers.Contract(
+        contractAddress,
+        contractInfo.abi as ethers.InterfaceAbi,
+        ethersSigner,
+      );
       const tx = await contract.closeSurvey();
       await tx.wait();
 
@@ -542,7 +546,11 @@ export function useEncryptedSurvey() {
     setMessage("Reopening survey...");
 
     try {
-      const contract = new ethers.Contract(contractAddress, contractInfo.abi, ethersSigner);
+      const contract = new ethers.Contract(
+        contractAddress,
+        contractInfo.abi as ethers.InterfaceAbi,
+        ethersSigner,
+      );
       const tx = await contract.reopenSurvey();
       await tx.wait();
 
@@ -563,7 +571,11 @@ export function useEncryptedSurvey() {
     setMessage("Extending survey deadline...");
 
     try {
-      const contract = new ethers.Contract(contractAddress, contractInfo.abi, ethersSigner);
+      const contract = new ethers.Contract(
+        contractAddress,
+        contractInfo.abi as ethers.InterfaceAbi,
+        ethersSigner,
+      );
       const tx = await contract.extendDeadline(BigInt(newDeadline));
       await tx.wait();
 
@@ -584,7 +596,11 @@ export function useEncryptedSurvey() {
     setMessage("Withdrawing your vote...");
 
     try {
-      const contract = new ethers.Contract(contractAddress, contractInfo.abi, ethersSigner);
+      const contract = new ethers.Contract(
+        contractAddress,
+        contractInfo.abi as ethers.InterfaceAbi,
+        ethersSigner,
+      );
       const tx = await contract.withdrawAndResubmit();
       await tx.wait();
 
@@ -605,7 +621,11 @@ export function useEncryptedSurvey() {
     setMessage("Revoking viewer access...");
 
     try {
-      const contract = new ethers.Contract(contractAddress, contractInfo.abi, ethersSigner);
+      const contract = new ethers.Contract(
+        contractAddress,
+        contractInfo.abi as ethers.InterfaceAbi,
+        ethersSigner,
+      );
       const tx = await contract.revokeViewer(viewer);
       await tx.wait();
 
