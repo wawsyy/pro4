@@ -144,7 +144,7 @@ export function useEncryptedSurvey() {
         admin,
         active,
         deadline,
-      ] = (await Promise.all([
+      ] = ((await Promise.all([
         publicClient.readContract({
           abi: contractInfo.abi,
           address: contractAddress,
@@ -185,7 +185,7 @@ export function useEncryptedSurvey() {
           address: contractAddress,
           functionName: "surveyDeadline",
         }),
-      ])) as [
+      ])) as unknown as [
         string,
         string,
         bigint,
