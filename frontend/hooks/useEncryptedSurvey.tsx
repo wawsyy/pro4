@@ -371,7 +371,11 @@ export function useEncryptedSurvey() {
         const encrypted = await input.encrypt();
 
         setMessage("Submitting encrypted batch response...");
-        const contract = new ethers.Contract(contractAddress, contractInfo.abi, ethersSigner);
+        const contract = new ethers.Contract(
+          contractAddress,
+          contractInfo.abi as ethers.InterfaceAbi,
+          ethersSigner,
+        );
 
         // Create arrays for the batch submission
         const encryptedVotes = encrypted.handles;
@@ -478,7 +482,11 @@ export function useEncryptedSurvey() {
       setMessage("Authorizing viewer...");
 
       try {
-        const contract = new ethers.Contract(contractAddress, contractInfo.abi, ethersSigner);
+        const contract = new ethers.Contract(
+          contractAddress,
+          contractInfo.abi as ethers.InterfaceAbi,
+          ethersSigner,
+        );
         const tx = await contract.authorizeViewer(targetViewer);
         await tx.wait();
 
