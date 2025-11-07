@@ -193,7 +193,7 @@ export function useEncryptedSurvey() {
         readonly `0x${string}`[],
         `0x${string}`,
         boolean,
-        bigint
+        bigint,
       ];
 
       const optionLabels = await Promise.all(
