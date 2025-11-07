@@ -304,7 +304,7 @@ export function useEncryptedSurvey() {
 
   const submitResponse = useCallback(
     async (optionIndex: number) => {
-      if (!contractAddress || !ethersSigner || !instance) {
+        if (!contractAddress || !ethersSigner || !instance) {
         setMessage("Connect your wallet to submit a response.");
         return;
       }
@@ -326,7 +326,7 @@ export function useEncryptedSurvey() {
         const encrypted = await input.encrypt();
 
         setMessage("Submitting encrypted response...");
-        const contract = new ethers.Contract(contractAddress, contractInfo.abi, ethersSigner);
+        const contract = new ethers.Contract(contractAddress, contractInfo.abi as ethers.InterfaceAbi, ethersSigner);
         const tx = await contract.submitResponse(optionIndex, encrypted.handles[0], encrypted.inputProof);
         await tx.wait();
 
