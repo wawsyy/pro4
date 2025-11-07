@@ -8,10 +8,12 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const surveyTitle = "Employee Experience Pulse 2025";
   const surveyDescription = "Encrypted survey capturing employee sentiment while keeping responses private.";
   const surveyOptions = ["Very satisfied", "Satisfied", "Neutral", "Dissatisfied"];
+  // Set deadline to 30 days from now
+  const surveyDeadline = Math.floor(Date.now() / 1000) + (30 * 24 * 60 * 60);
 
   const deployedSurvey = await deploy("EncryptedSurvey", {
     from: deployer,
-    args: [surveyTitle, surveyDescription, surveyOptions],
+    args: [surveyTitle, surveyDescription, surveyOptions, surveyDeadline],
     log: true,
   });
 
